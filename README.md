@@ -16,14 +16,50 @@ A terminal-based dictation tool that records speech, transcribes it locally with
 
 ## Installation
 
-### NixOS / Nix
+### Nix (Flakes)
 
 ```bash
 # Run directly
 nix run github:jordangarrison/sweet-nothings
 
-# Or install to profile
+# Install to profile
 nix profile install github:jordangarrison/sweet-nothings
+```
+
+### NixOS Configuration
+
+Add as a flake input in your `flake.nix`:
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    sweet-nothings.url = "github:jordangarrison/sweet-nothings";
+  };
+
+  outputs = { self, nixpkgs, sweet-nothings, ... }: {
+    nixosConfigurations.yourhostname = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        ({ pkgs, ... }: {
+          environment.systemPackages = [
+            sweet-nothings.packages.${pkgs.system}.default
+          ];
+        })
+      ];
+    };
+  };
+}
+```
+
+### Home Manager
+
+```nix
+{ inputs, pkgs, ... }: {
+  home.packages = [
+    inputs.sweet-nothings.packages.${pkgs.system}.default
+  ];
+}
 ```
 
 ### Devbox
