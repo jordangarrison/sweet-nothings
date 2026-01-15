@@ -1,6 +1,8 @@
 # Sweet Nothings
 
-A terminal-based dictation tool that records speech, transcribes it locally with whisper.cpp, and copies the result to your clipboard.
+*Whisper sweet nothings to your Linux computer.*
+
+A terminal-based dictation tool that records speech, transcribes it locally with [whisper.cpp](https://github.com/ggerganov/whisper.cpp), and copies the result to your clipboard. The name is a playful nod to the phrase "whispering sweet nothings" — except here, you're whispering to your machine and it actually listens.
 
 ## Features
 
@@ -18,17 +20,17 @@ A terminal-based dictation tool that records speech, transcribes it locally with
 
 ```bash
 # Run directly
-nix run github:user/sweet-nothings
+nix run github:jordangarrison/sweet-nothings
 
 # Or install to profile
-nix profile install github:user/sweet-nothings
+nix profile install github:jordangarrison/sweet-nothings
 ```
 
 ### From Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/user/sweet-nothings
+git clone https://github.com/jordangarrison/sweet-nothings
 cd sweet-nothings
 
 # With Nix
