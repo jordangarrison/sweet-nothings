@@ -26,6 +26,23 @@ nix run github:jordangarrison/sweet-nothings
 nix profile install github:jordangarrison/sweet-nothings
 ```
 
+### Devbox
+
+```bash
+# Add to your devbox.json
+devbox add github:jordangarrison/sweet-nothings
+```
+
+Or manually add to your `devbox.json`:
+
+```json
+{
+  "packages": [
+    "github:jordangarrison/sweet-nothings"
+  ]
+}
+```
+
 ### From Source
 
 ```bash
