@@ -48,6 +48,8 @@ pub struct App {
     error: Option<String>,
     /// Time when result was shown
     result_shown_at: Option<Instant>,
+    /// Whether to paste after TUI exits
+    should_paste_on_exit: bool,
 }
 
 impl App {
@@ -68,6 +70,7 @@ impl App {
             transcription: None,
             error: None,
             result_shown_at: None,
+            should_paste_on_exit: false,
         }
     }
 
@@ -128,6 +131,14 @@ impl App {
         false
     }
 
+    pub fn should_paste_on_exit(&self) -> bool {
+        self.should_paste_on_exit
+    }
+
+    pub fn do_paste(&self) -> Result<()> {
+        self.clipboard.paste()
+    }
+
     pub fn start_recording(&mut self) -> Result<()> {
         self.recorder.start()?;
         self.recording_start = Some(Instant::now());
@@ -169,12 +180,9 @@ impl App {
                             return;
                         }
 
-                        // Auto-paste if enabled
+                        // Mark for auto-paste after TUI exits
                         if self.config.auto_paste {
-                            if let Err(e) = self.clipboard.paste() {
-                                // Don't fail on paste error, just continue
-                                eprintln!("Warning: Failed to auto-paste: {}", e);
-                            }
+                            self.should_paste_on_exit = true;
                         }
 
                         self.transcription = Some(text);

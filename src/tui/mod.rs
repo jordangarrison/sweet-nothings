@@ -49,6 +49,15 @@ pub fn run(config: &Config) -> Result<()> {
     )?;
     terminal.show_cursor()?;
 
+    // Auto-paste if enabled (after terminal is restored)
+    if app.should_paste_on_exit() {
+        // Small delay to let terminal fully restore focus
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        if let Err(e) = app.do_paste() {
+            eprintln!("Warning: Failed to auto-paste: {}", e);
+        }
+    }
+
     // Return result or propagate error
     if let Err(e) = result {
         eprintln!("Error: {}", e);
