@@ -54,7 +54,7 @@ fn paste_text() -> Result<()> {
         // Use wtype for Wayland
         if which("wtype").is_ok() {
             Command::new("wtype")
-                .args(["-M", "ctrl", "v", "-m", "ctrl"])
+                .args(["-M", "ctrl", "-s", "50", "v", "-m", "ctrl"])
                 .status()?;
             return Ok(());
         }
