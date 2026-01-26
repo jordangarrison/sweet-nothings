@@ -18,23 +18,28 @@
           inherit system overlays;
         };
 
+        inherit (pkgs) lib stdenv;
+
         rustToolchain = pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" "rust-analyzer" ];
         };
 
-        # Build dependencies
+        # Platform-specific build inputs
         buildInputs = with pkgs; [
-          # Audio
-          alsa-lib
-
           # For model downloads (reqwest with native-tls)
           openssl
-
-          # Clipboard on Linux
+        ] ++ lib.optionals stdenv.isLinux [
+          # Audio on Linux
+          alsa-lib
+          # Clipboard on Linux (X11)
           xorg.libX11
           xorg.libXcursor
           xorg.libXrandr
           xorg.libXi
+        ] ++ lib.optionals stdenv.isDarwin [
+          # Apple SDK includes all frameworks (CoreAudio, AudioUnit, AudioToolbox, etc.)
+          pkgs.apple-sdk
+          pkgs.libiconv
         ];
 
         # Native build dependencies
@@ -47,16 +52,18 @@
 
         # Runtime dependencies for paste simulation and transcription
         runtimeDeps = with pkgs; [
-          whisper-cpp  # Transcription
+          whisper-cpp  # Transcription (both platforms)
+        ] ++ lib.optionals stdenv.isLinux [
           wtype        # Wayland paste simulation
           xdotool      # X11 paste simulation
           wl-clipboard # Wayland clipboard
           xclip        # X11 clipboard fallback
         ];
+        # macOS uses osascript (system-provided) - no additional runtime deps needed
 
       in
       {
-        devShells.default = pkgs.mkShell {
+        devShells.default = pkgs.mkShell ({
           inherit buildInputs nativeBuildInputs;
 
           packages = with pkgs; [
@@ -73,10 +80,10 @@
           # For openssl-sys
           OPENSSL_DIR = "${pkgs.openssl.dev}";
           OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
-
-          # For finding ALSA
+        } // lib.optionalAttrs stdenv.isLinux {
+          # For finding ALSA (Linux only)
           PKG_CONFIG_PATH = "${pkgs.alsa-lib.dev}/lib/pkgconfig";
-        };
+        });
 
         packages.default = pkgs.rustPlatform.buildRustPackage {
           pname = "sweet-nothings";

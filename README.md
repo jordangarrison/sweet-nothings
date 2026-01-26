@@ -1,6 +1,6 @@
 # Sweet Nothings
 
-*Whisper sweet nothings to your Linux computer.*
+*Whisper sweet nothings to your computer.*
 
 A terminal-based dictation tool that records speech, transcribes it locally with [whisper.cpp](https://github.com/ggerganov/whisper.cpp), and copies the result to your clipboard. The name is a playful nod to the phrase "whispering sweet nothings" — except here, you're whispering to your machine and it actually listens.
 
@@ -86,11 +86,14 @@ Or manually add to your `devbox.json`:
 git clone https://github.com/jordangarrison/sweet-nothings
 cd sweet-nothings
 
-# With Nix
+# With Nix (Linux or macOS)
 nix develop
 cargo build --release
 
-# Without Nix (requires ALSA dev libraries)
+# Without Nix on Linux (requires ALSA dev libraries)
+cargo build --release
+
+# Without Nix on macOS (uses CoreAudio, no extra deps needed)
 cargo build --release
 ```
 
@@ -182,6 +185,26 @@ bindsym $mod+d exec alacritty --class sweet-nothings -e sweet-nothings --paste
 for_window [app_id="sweet-nothings"] floating enable, resize set 600 400
 ```
 
+### macOS with Hammerspoon
+
+```lua
+-- ~/.hammerspoon/init.lua
+hs.hotkey.bind({"cmd", "shift"}, "D", function()
+    hs.execute("/usr/local/bin/alacritty -e sweet-nothings --paste", true)
+end)
+```
+
+### macOS with Automator
+
+1. Open Automator and create a new "Quick Action"
+2. Add "Run Shell Script" action with:
+
+```bash
+osascript -e 'tell application "Terminal" to do script "sweet-nothings --paste; exit"'
+```
+
+3. Save and assign a keyboard shortcut in System Settings > Keyboard > Keyboard Shortcuts > Services
+
 ## CLI Options
 
 ```
@@ -217,9 +240,19 @@ Commands:
 
 ## Requirements
 
+### Linux
 - whisper-cpp (whisper-cli binary)
-- ALSA (for audio capture on Linux)
+- ALSA (for audio capture)
 - wtype (Wayland) or xdotool (X11) for paste simulation
+
+### macOS
+- whisper-cpp (whisper-cli binary)
+- Accessibility permissions for paste simulation (uses osascript)
+
+To enable paste simulation on macOS:
+1. Open System Settings > Privacy & Security > Accessibility
+2. Add your terminal emulator (Terminal.app, iTerm2, Alacritty, etc.) to the list
+3. Toggle the permission on for the terminal app
 
 ## License
 
