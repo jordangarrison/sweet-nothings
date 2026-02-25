@@ -2,7 +2,7 @@
 
 *Whisper sweet nothings to your Linux computer.*
 
-A terminal-based dictation tool that records speech, transcribes it locally, and copies the result to your clipboard. The name is a playful nod to the phrase "whispering sweet nothings" — except here, you're whispering to your machine and it actually listens.
+A terminal-based dictation tool that records speech, transcribes it locally, and copies the result to your clipboard. Finally, a machine that listens.
 
 ## Features
 
