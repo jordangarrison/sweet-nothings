@@ -2,8 +2,13 @@
 name = "sweet-nothings"
 version = "0.1.0"
 edition = "2021"
-description = "Terminal-based whisper dictation tool"
+description = "Terminal-based dictation tool"
 license = "MIT"
+
+[features]
+default = ["whisper"]
+whisper = []
+parakeet = ["dep:parakeet-rs"]
 
 [dependencies]
 # Audio capture
@@ -34,3 +39,6 @@ humantime-serde = "1"
 # Error handling
 anyhow = "1"
 thiserror = "1"
+
+# Parakeet backend (optional)
+parakeet-rs = { version = "0.3", optional = true }
