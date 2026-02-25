@@ -57,13 +57,34 @@
         ];
 
         # ALSA config with PipeWire support for dev shell
+        # The system's /etc/alsa/conf.d/ has 49-pipewire-modules.conf that
+        # hardcodes plugin paths built against the system's alsa-lib version.
+        # Our dev shell uses a different alsa-lib, so dlopen fails with ABI
+        # mismatch. We patch alsa.conf to only load our conf.d (with matching
+        # plugin paths) instead of the system dirs.
         alsaConfigWithPipewire = pkgs.runCommand "alsa-config-pipewire" {} ''
           mkdir -p $out/conf.d
-          cp ${pkgs.alsa-lib}/share/alsa/alsa.conf $out/
+          cp ${pkgs.alsa-lib}/share/alsa/alsa.conf $out/alsa.conf
+          # Replace system conf.d paths with our own
+          sed -i \
+            -e 's|"/var/lib/alsa/conf.d"|"'"$out"'/conf.d"|' \
+            -e 's|"/usr/etc/alsa/conf.d"|"'"$out"'/conf.d"|' \
+            -e 's|"/etc/alsa/conf.d"|"'"$out"'/conf.d"|' \
+            $out/alsa.conf
           if [ -d "${pkgs.alsa-lib}/share/alsa/conf.d" ]; then
             cp -r ${pkgs.alsa-lib}/share/alsa/conf.d/* $out/conf.d/ 2>/dev/null || true
           fi
+          # PipeWire PCM/CTL type and default device configs
           cp ${pkgs.pipewire}/share/alsa/alsa.conf.d/* $out/conf.d/ 2>/dev/null || true
+          # Plugin module paths — must point to our PipeWire (same alsa-lib ABI)
+          cat > $out/conf.d/49-pipewire-modules.conf <<MODULES
+          pcm_type.pipewire {
+            libs.native = ${pkgs.pipewire}/lib/alsa-lib/libasound_module_pcm_pipewire.so ;
+          }
+          ctl_type.pipewire {
+            libs.native = ${pkgs.pipewire}/lib/alsa-lib/libasound_module_ctl_pipewire.so ;
+          }
+          MODULES
         '';
 
         # Parameterized build function
