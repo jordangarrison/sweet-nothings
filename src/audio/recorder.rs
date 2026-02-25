@@ -187,6 +187,14 @@ impl Recorder for CpalRecorder {
             samples.clone()
         };
 
+        // Resample to 16kHz (required by transcription backends)
+        let target_rate = 16000u32;
+        let (final_samples, output_rate) = if self.sample_rate != target_rate {
+            (resample(&mono_samples, self.sample_rate, target_rate), target_rate)
+        } else {
+            (mono_samples, self.sample_rate)
+        };
+
         // Generate output path
         let output_path = self.output_dir.join(format!(
             "sweet-nothings-{}-{}.wav",
@@ -200,13 +208,13 @@ impl Recorder for CpalRecorder {
         // Write WAV file
         let spec = WavSpec {
             channels: 1,
-            sample_rate: self.sample_rate,
+            sample_rate: output_rate,
             bits_per_sample: 32,
             sample_format: HoundSampleFormat::Float,
         };
 
         let mut writer = WavWriter::create(&output_path, spec)?;
-        for sample in mono_samples.iter() {
+        for sample in final_samples.iter() {
             writer.write_sample(*sample)?;
         }
         writer.finalize()?;
@@ -223,6 +231,30 @@ impl Recorder for CpalRecorder {
     fn audio_level(&self) -> f32 {
         *self.level.lock().unwrap()
     }
+}
+
+/// Resample audio using linear interpolation.
+fn resample(samples: &[f32], from_rate: u32, to_rate: u32) -> Vec<f32> {
+    let ratio = from_rate as f64 / to_rate as f64;
+    let output_len = (samples.len() as f64 / ratio) as usize;
+    let mut output = Vec::with_capacity(output_len);
+
+    for i in 0..output_len {
+        let src_pos = i as f64 * ratio;
+        let src_idx = src_pos as usize;
+        let frac = src_pos - src_idx as f64;
+
+        let sample = if src_idx + 1 < samples.len() {
+            samples[src_idx] as f64 * (1.0 - frac) + samples[src_idx + 1] as f64 * frac
+        } else if src_idx < samples.len() {
+            samples[src_idx] as f64
+        } else {
+            0.0
+        };
+        output.push(sample as f32);
+    }
+
+    output
 }
 
 impl Drop for CpalRecorder {
