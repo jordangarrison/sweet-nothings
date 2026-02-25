@@ -11,37 +11,54 @@ use std::path::{Path, PathBuf};
 static PARAKEET_MODELS: &[ModelInfo] = &[
     ModelInfo {
         name: "tdt-0.6b",
-        size_bytes: 600_000_000,
-        size_human: "~600 MB",
+        size_bytes: 2_550_000_000,
+        size_human: "~2.5 GB",
         description: "TDT 0.6B - recommended, good speed/accuracy (multilingual)",
     },
     ModelInfo {
         name: "tdt-1.1b",
-        size_bytes: 1_100_000_000,
-        size_human: "~1.1 GB",
+        size_bytes: 4_300_000_000,
+        size_human: "~4.3 GB",
         description: "TDT 1.1B - higher accuracy, slower (multilingual)",
     },
     ModelInfo {
         name: "ctc-0.6b",
-        size_bytes: 600_000_000,
-        size_human: "~600 MB",
+        size_bytes: 2_436_000_000,
+        size_human: "~2.4 GB",
         description: "CTC 0.6B - English only, fast",
-    },
-    ModelInfo {
-        name: "ctc-1.1b",
-        size_bytes: 1_100_000_000,
-        size_human: "~1.1 GB",
-        description: "CTC 1.1B - English only, higher accuracy",
     },
 ];
 
-/// Map model name to its Hugging Face repo for ONNX download
-fn model_hf_repo(name: &str) -> Option<&'static str> {
+/// Download configuration for a model: (repo, list of (remote_path, local_filename))
+fn model_download_config(name: &str) -> Option<(&'static str, &'static [(&'static str, &'static str)])> {
     match name {
-        "tdt-0.6b" => Some("nvidia/parakeet-tdt-0.6b-v2"),
-        "tdt-1.1b" => Some("nvidia/parakeet-tdt-1.1b"),
-        "ctc-0.6b" => Some("nvidia/parakeet-ctc-0.6b"),
-        "ctc-1.1b" => Some("nvidia/parakeet-ctc-1.1b"),
+        "tdt-0.6b" => Some((
+            "istupakov/parakeet-tdt-0.6b-v3-onnx",
+            &[
+                ("encoder-model.onnx", "encoder-model.onnx"),
+                ("encoder-model.onnx.data", "encoder-model.onnx.data"),
+                ("decoder_joint-model.onnx", "decoder_joint-model.onnx"),
+                ("vocab.txt", "vocab.txt"),
+            ],
+        )),
+        "tdt-1.1b" => Some((
+            "dtgagnon/parakeet-tdt-1.1b-onnx",
+            &[
+                ("encoder-model.onnx", "encoder-model.onnx"),
+                ("encoder-model.onnx.data", "encoder-model.onnx.data"),
+                ("decoder_joint-model.onnx", "decoder_joint-model.onnx"),
+                ("decoder_joint-model.onnx.data", "decoder_joint-model.onnx.data"),
+                ("vocab.txt", "vocab.txt"),
+            ],
+        )),
+        "ctc-0.6b" => Some((
+            "onnx-community/parakeet-ctc-0.6b-ONNX",
+            &[
+                ("onnx/model.onnx", "model.onnx"),
+                ("onnx/model.onnx_data", "model.onnx_data"),
+                ("tokenizer.json", "tokenizer.json"),
+            ],
+        )),
         _ => None,
     }
 }
@@ -119,9 +136,12 @@ impl TranscriptionBackend for ParakeetBackend {
         for entry in std::fs::read_dir(&parakeet_dir)? {
             let entry = entry?;
             let path = entry.path();
-            if path.is_dir() && path.join("model.onnx").exists() {
-                if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
-                    models.push(name.to_string());
+            if path.is_dir() {
+                // TDT models have encoder-model.onnx, CTC models have model.onnx
+                if path.join("encoder-model.onnx").exists() || path.join("model.onnx").exists() {
+                    if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+                        models.push(name.to_string());
+                    }
                 }
             }
         }
@@ -134,42 +154,31 @@ impl TranscriptionBackend for ParakeetBackend {
             .find(|m| m.name == name)
             .with_context(|| format!("Unknown parakeet model: {}", name))?;
 
-        let repo = model_hf_repo(name)
-            .with_context(|| format!("No download URL for model: {}", name))?;
+        let (repo, files) = model_download_config(name)
+            .with_context(|| format!("No download configuration for model: {}", name))?;
 
         let model_dir = models_dir.join("parakeet").join(name);
         std::fs::create_dir_all(&model_dir)?;
 
-        // Download model.onnx
-        let onnx_path = model_dir.join("model.onnx");
-        if !onnx_path.exists() {
-            let url = format!(
-                "https://huggingface.co/{}/resolve/main/model.onnx",
-                repo
-            );
-            crate::models::download_file(
-                &url,
-                &onnx_path,
-                &format!("{} (model)", name),
-                info.size_human,
-                info.size_bytes,
-            )?;
-        }
+        println!(
+            "Downloading {} model ({}, {} files)...",
+            name,
+            info.size_human,
+            files.len()
+        );
+        println!();
 
-        // Download tokenizer.json
-        let tokenizer_path = model_dir.join("tokenizer.json");
-        if !tokenizer_path.exists() {
+        for (remote_path, local_name) in files {
+            let dest = model_dir.join(local_name);
+            if dest.exists() {
+                println!("  {} already exists, skipping", local_name);
+                continue;
+            }
             let url = format!(
-                "https://huggingface.co/{}/resolve/main/tokenizer.json",
-                repo
+                "https://huggingface.co/{}/resolve/main/{}",
+                repo, remote_path
             );
-            crate::models::download_file(
-                &url,
-                &tokenizer_path,
-                &format!("{} (tokenizer)", name),
-                "~1 MB",
-                1_000_000,
-            )?;
+            crate::models::download_file(&url, &dest, local_name, "", 0)?;
         }
 
         Ok(model_dir)

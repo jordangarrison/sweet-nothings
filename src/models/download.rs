@@ -16,7 +16,11 @@ pub fn download_file(
     size_human: &str,
     estimated_size: u64,
 ) -> Result<()> {
-    println!("Downloading {} ({})...", display_name, size_human);
+    if size_human.is_empty() {
+        println!("Downloading {}...", display_name);
+    } else {
+        println!("Downloading {} ({})...", display_name, size_human);
+    }
     println!("From: {}", url);
     println!("To: {}", dest_path.display());
     println!();
@@ -26,6 +30,11 @@ pub fn download_file(
         .get(url)
         .send()
         .context("Failed to start download")?;
+
+    let status = response.status();
+    if !status.is_success() {
+        anyhow::bail!("Download failed: HTTP {} for {}", status, url);
+    }
 
     let total_size = response.content_length().unwrap_or(estimated_size);
 
@@ -59,7 +68,7 @@ pub fn download_file(
     std::fs::rename(&temp_path, dest_path)?;
 
     println!();
-    println!("Model saved to: {}", dest_path.display());
+    println!("Saved to: {}", dest_path.display());
 
     Ok(())
 }

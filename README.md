@@ -299,10 +299,9 @@ Commands:
 
 | Model       | Size     | Description                                    |
 |-------------|----------|------------------------------------------------|
-| tdt-0.6b    | ~1.2 GB  | TDT 0.6B — fast, accurate (English)           |
-| tdt-1.1b    | ~2.2 GB  | TDT 1.1B — highest accuracy (English)         |
-| ctc-0.6b    | ~1.2 GB  | CTC 0.6B — fast streaming (English)           |
-| ctc-1.1b    | ~2.2 GB  | CTC 1.1B — high quality streaming (English)   |
+| tdt-0.6b    | ~2.5 GB  | TDT 0.6B — recommended, multilingual          |
+| tdt-1.1b    | ~4.3 GB  | TDT 1.1B — highest accuracy, multilingual     |
+| ctc-0.6b    | ~2.4 GB  | CTC 0.6B — English only, fast                 |
 
 ## Requirements
 
