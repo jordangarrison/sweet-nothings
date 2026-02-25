@@ -48,6 +48,9 @@ fn main() -> Result<()> {
         return handle_command(command, &config);
     }
 
+    // Migrate old flat model directory to backend subdirectories
+    migrate_model_directory(&config.models_dir())?;
+
     // Resolve model path via backend
     let backend = resolve_backend_for_model_check(&config)?;
     let models_dir = config.models_dir();
@@ -242,4 +245,43 @@ fn handle_config_command(action: ConfigAction) -> Result<()> {
             Ok(())
         }
     }
+}
+
+/// Migrate models from flat directory to backend subdirectories.
+/// Moves ggml-*.bin files from models/ to models/whisper/.
+fn migrate_model_directory(models_dir: &std::path::Path) -> Result<()> {
+    if !models_dir.exists() {
+        return Ok(());
+    }
+
+    let whisper_dir = models_dir.join("whisper");
+    let mut migrated = false;
+
+    for entry in std::fs::read_dir(models_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_file() {
+            if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+                if name.starts_with("ggml-") && name.ends_with(".bin") {
+                    std::fs::create_dir_all(&whisper_dir)?;
+                    let dest = whisper_dir.join(name);
+                    if !dest.exists() {
+                        std::fs::rename(&path, &dest)?;
+                        if !migrated {
+                            println!("Migrating models to new directory layout...");
+                            migrated = true;
+                        }
+                        println!("  Moved {} -> whisper/{}", name, name);
+                    }
+                }
+            }
+        }
+    }
+
+    if migrated {
+        println!("Migration complete.");
+        println!();
+    }
+
+    Ok(())
 }
