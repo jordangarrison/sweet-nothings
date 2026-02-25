@@ -97,6 +97,8 @@
 
           packages = with pkgs; [
             whisper-cpp
+            alsa-plugins
+            pipewire
           ] ++ commonRuntimeDeps ++ whisperRuntimeDeps;
 
           shellHook = ''
@@ -109,6 +111,7 @@
           OPENSSL_DIR = "${pkgs.openssl.dev}";
           OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
           PKG_CONFIG_PATH = "${pkgs.alsa-lib.dev}/lib/pkgconfig";
+          ALSA_PLUGIN_DIR = "${pkgs.alsa-plugins}/lib/alsa-lib";
         };
 
         packages = {
