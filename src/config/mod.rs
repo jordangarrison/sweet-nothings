@@ -4,7 +4,7 @@
 
 mod paths;
 
-pub use paths::{config_path, model_path, models_dir};
+pub use paths::{config_path, models_dir};
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -18,7 +18,7 @@ pub struct Config {
     /// Transcription backend to use (e.g., "whisper", "parakeet")
     pub backend: String,
 
-    /// Whisper model to use (e.g., "base.en", "small.en")
+    /// Model to use (interpreted by the active backend)
     pub model: String,
 
     /// Whether to auto-paste after transcription
@@ -28,7 +28,7 @@ pub struct Config {
     #[serde(with = "humantime_serde")]
     pub exit_delay: Duration,
 
-    /// Path to custom whisper binary (optional)
+    /// Path to custom whisper binary (optional, only for whisper backend)
     pub whisper_path: Option<PathBuf>,
 
     /// Path to custom models directory (optional)
@@ -66,7 +66,6 @@ impl Config {
     pub fn save(&self) -> Result<()> {
         let config_file = config_path();
 
-        // Ensure parent directory exists
         if let Some(parent) = config_file.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -74,11 +73,6 @@ impl Config {
         let contents = toml::to_string_pretty(self)?;
         std::fs::write(&config_file, contents)?;
         Ok(())
-    }
-
-    /// Get the path to the model file
-    pub fn model_path(&self) -> PathBuf {
-        model_path(&self.model, self.models_dir.as_deref())
     }
 
     /// Get the models directory

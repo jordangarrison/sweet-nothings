@@ -1,7 +1,7 @@
 //! Model management module
 //!
-//! Handles downloading and managing whisper models.
+//! Provides shared download utilities used by transcription backends.
 
 mod download;
 
-pub use download::{download_model, prompt_download, AVAILABLE_MODELS};
+pub use download::download_file;

@@ -2,9 +2,14 @@
 //!
 //! Provides the `TranscriptionBackend` trait and implementations for speech-to-text.
 
+mod registry;
 mod whisper_cli;
 
-pub use whisper_cli::WhisperCliTranscriber;
+#[cfg(feature = "parakeet")]
+pub mod parakeet;
+
+pub use registry::{available_backend_names, create_backend};
+pub use whisper_cli::WhisperCliBackend;
 
 use anyhow::Result;
 use std::path::{Path, PathBuf};
@@ -25,7 +30,6 @@ pub struct ModelInfo {
 /// Trait for transcription backend implementations.
 ///
 /// Each backend bundles transcription with its own model management.
-#[allow(dead_code)]
 pub trait TranscriptionBackend: Send + Sync {
     /// Backend identifier (e.g., "whisper", "parakeet")
     fn name(&self) -> &str;
@@ -44,11 +48,4 @@ pub trait TranscriptionBackend: Send + Sync {
 
     /// Resolve a model name to a local path within the backend's subdirectory
     fn resolve_model_path(&self, name: &str, models_dir: &Path) -> Result<PathBuf>;
-}
-
-/// Legacy trait kept during migration
-#[allow(dead_code)]
-pub trait Transcriber {
-    fn transcribe(&self, audio_path: &Path) -> Result<String>;
-    fn model_name(&self) -> &str;
 }

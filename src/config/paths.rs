@@ -1,7 +1,7 @@
 //! XDG-compliant path resolution
 
 use directories::ProjectDirs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 const APP_NAME: &str = "sweet-nothings";
 
@@ -36,43 +36,4 @@ pub fn data_dir() -> PathBuf {
 /// Returns: $XDG_DATA_HOME/sweet-nothings/models
 pub fn models_dir() -> PathBuf {
     data_dir().join("models")
-}
-
-/// Get the path to a specific model file
-pub fn model_path(model_name: &str, custom_dir: Option<&Path>) -> PathBuf {
-    let dir = custom_dir
-        .map(PathBuf::from)
-        .unwrap_or_else(models_dir);
-
-    // Add ggml- prefix and .bin suffix if needed
-    let filename = if model_name.starts_with("ggml-") {
-        model_name.to_string()
-    } else {
-        format!("ggml-{}", model_name)
-    };
-
-    let filename = if filename.ends_with(".bin") {
-        filename
-    } else {
-        format!("{}.bin", filename)
-    };
-
-    dir.join(filename)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_model_path_normalization() {
-        let path = model_path("base.en", None);
-        assert!(path.to_string_lossy().contains("ggml-base.en.bin"));
-
-        let path = model_path("ggml-base.en", None);
-        assert!(path.to_string_lossy().contains("ggml-base.en.bin"));
-
-        let path = model_path("ggml-base.en.bin", None);
-        assert!(path.to_string_lossy().contains("ggml-base.en.bin"));
-    }
 }
