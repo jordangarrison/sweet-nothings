@@ -8,12 +8,14 @@ use anyhow::{bail, Result};
 
 /// List all backend names that are compiled in
 pub fn available_backend_names() -> Vec<&'static str> {
+    #[allow(unused_mut)]
     let mut backends = vec!["whisper"];
     #[cfg(feature = "parakeet")]
     backends.push("parakeet");
     backends
 }
 
+#[allow(dead_code)]
 /// Create a backend instance by name.
 ///
 /// For whisper: `model_path` is the resolved path to the ggml model file.

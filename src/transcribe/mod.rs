@@ -8,6 +8,7 @@ mod whisper_cli;
 #[cfg(feature = "parakeet")]
 pub mod parakeet;
 
+#[allow(unused_imports)]
 pub use registry::{available_backend_names, create_backend};
 pub use whisper_cli::WhisperCliBackend;
 
@@ -30,6 +31,7 @@ pub struct ModelInfo {
 /// Trait for transcription backend implementations.
 ///
 /// Each backend bundles transcription with its own model management.
+#[allow(dead_code)]
 pub trait TranscriptionBackend: Send + Sync {
     /// Backend identifier (e.g., "whisper", "parakeet")
     fn name(&self) -> &str;
