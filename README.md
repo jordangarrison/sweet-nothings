@@ -2,12 +2,13 @@
 
 *Whisper sweet nothings to your Linux computer.*
 
-A terminal-based dictation tool that records speech, transcribes it locally with [whisper.cpp](https://github.com/ggerganov/whisper.cpp), and copies the result to your clipboard. The name is a playful nod to the phrase "whispering sweet nothings" — except here, you're whispering to your machine and it actually listens.
+A terminal-based dictation tool that records speech, transcribes it locally, and copies the result to your clipboard. Finally, a machine that listens.
 
 ## Features
 
 - Record audio from your microphone
-- Transcribe locally using whisper.cpp (no cloud required)
+- Transcribe locally (no cloud required)
+- Pluggable transcription backends: [whisper.cpp](https://github.com/ggerganov/whisper.cpp) (default) and [Parakeet](https://github.com/nvidia/parakeet) (NVIDIA ASR)
 - Copy transcription to clipboard
 - Optional auto-paste after transcription
 - TUI with visual feedback (recording timer, audio level, spinner)
@@ -19,16 +20,62 @@ A terminal-based dictation tool that records speech, transcribes it locally with
 ### Nix (Flakes)
 
 ```bash
-# Run directly
+# Run directly (whisper backend)
 nix run github:jordangarrison/sweet-nothings
+
+# Run with all backends
+nix run github:jordangarrison/sweet-nothings#full
 
 # Install to profile
 nix profile install github:jordangarrison/sweet-nothings
 ```
 
-### NixOS Configuration
+### Nix Module (Home Manager)
 
-Add as a flake input in your `flake.nix`:
+The recommended way to use Sweet Nothings with Nix. The module builds the package with your selected backends and generates the config file declaratively.
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    sweet-nothings.url = "github:jordangarrison/sweet-nothings";
+  };
+
+  outputs = { self, nixpkgs, sweet-nothings, ... }: {
+    homeConfigurations.yourusername = home-manager.lib.homeManagerConfiguration {
+      # ...
+      modules = [
+        sweet-nothings.homeManagerModules.default
+        {
+          programs.sweet-nothings = {
+            enable = true;
+            backends = [ "whisper" ];       # backends to compile in: "whisper", "parakeet"
+            defaultBackend = "whisper";      # backend used by default
+            model = "base.en";              # default model name
+            settings = {                    # additional config.toml settings
+              auto_paste = false;
+              exit_delay = "2s";
+            };
+          };
+        }
+      ];
+    };
+  };
+}
+```
+
+With Parakeet:
+
+```nix
+programs.sweet-nothings = {
+  enable = true;
+  backends = [ "whisper" "parakeet" ];
+  defaultBackend = "parakeet";
+  model = "tdt-0.6b";
+};
+```
+
+### Nix Module (NixOS)
 
 ```nix
 {
@@ -41,25 +88,39 @@ Add as a flake input in your `flake.nix`:
     nixosConfigurations.yourhostname = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       modules = [
-        ({ pkgs, ... }: {
-          environment.systemPackages = [
-            sweet-nothings.packages.${pkgs.system}.default
-          ];
-        })
+        sweet-nothings.nixosModules.default
+        {
+          programs.sweet-nothings = {
+            enable = true;
+            backends = [ "whisper" ];
+          };
+        }
       ];
     };
   };
 }
 ```
 
-### Home Manager
+#### Module Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enable` | bool | `false` | Enable sweet-nothings |
+| `backends` | list of enum | `[ "whisper" ]` | Backends to compile in (`"whisper"`, `"parakeet"`) |
+| `defaultBackend` | string | `"whisper"` | Backend used when not specified via CLI |
+| `model` | string | `"base.en"` | Default model name for the selected backend |
+| `package` | package | auto-built | Override the sweet-nothings package |
+| `settings` | attrs | `{}` | Additional `config.toml` settings (e.g., `auto_paste`, `exit_delay`) |
+
+### Nix Packages (without module)
+
+If you prefer manual package installation without the module:
 
 ```nix
-{ inputs, pkgs, ... }: {
-  home.packages = [
-    inputs.sweet-nothings.packages.${pkgs.system}.default
-  ];
-}
+# In environment.systemPackages or home.packages:
+sweet-nothings.packages.${system}.default       # whisper only
+sweet-nothings.packages.${system}.full           # whisper + parakeet
+sweet-nothings.packages.${system}.parakeet-only  # parakeet only
 ```
 
 ### Devbox
@@ -92,6 +153,15 @@ cargo build --release
 
 # Without Nix (requires ALSA dev libraries)
 cargo build --release
+
+# Build with Parakeet support (requires ONNX Runtime)
+cargo build --release --features parakeet
+
+# Build with ffmpeg support (auto-converts mp3/mp4/flac/ogg to WAV)
+cargo build --release --features ffmpeg
+
+# Build with everything
+cargo build --release --features "whisper parakeet ffmpeg"
 ```
 
 ## Usage
@@ -107,7 +177,32 @@ sweet-nothings --paste
 
 # Use a different model
 sweet-nothings --model small.en
+
+# Use a specific backend
+sweet-nothings --backend parakeet
+sweet-nothings --backend parakeet --model tdt-0.6b
 ```
+
+### File Transcription
+
+Transcribe existing audio files without the recording TUI:
+
+```bash
+# WAV files work out of the box
+sweet-nothings --file meeting.wav
+
+# With a specific backend
+sweet-nothings --file recording.wav --backend parakeet --model tdt-0.6b
+
+# Transcribe and auto-paste
+sweet-nothings --file recording.wav --paste
+
+# Other formats require the ffmpeg feature
+sweet-nothings --file interview.mp3    # needs ffmpeg feature
+sweet-nothings --file podcast.mp4      # needs ffmpeg feature
+```
+
+The `ffmpeg` feature automatically converts non-WAV files to the required format. Without it, only WAV files are accepted.
 
 ### Model Management
 
@@ -115,11 +210,15 @@ sweet-nothings --model small.en
 # List installed models
 sweet-nothings models list
 
-# Show available models
+# Show available models for the default backend
 sweet-nothings models available
+
+# Show available models for a specific backend
+sweet-nothings models available --backend parakeet
 
 # Download a model
 sweet-nothings models download base.en
+sweet-nothings models download tdt-0.6b --backend parakeet
 ```
 
 ### Configuration
@@ -132,6 +231,7 @@ sweet-nothings config show
 sweet-nothings config path
 
 # Set a config value
+sweet-nothings config set backend parakeet
 sweet-nothings config set model small.en
 sweet-nothings config set auto_paste true
 sweet-nothings config set exit_delay 3s
@@ -142,6 +242,7 @@ sweet-nothings config set exit_delay 3s
 Configuration is stored at `$XDG_CONFIG_HOME/sweet-nothings/config.toml`:
 
 ```toml
+backend = "whisper"
 model = "base.en"
 auto_paste = false
 exit_delay = "2s"
@@ -188,7 +289,9 @@ for_window [app_id="sweet-nothings"] floating enable, resize set 600 400
 sweet-nothings [OPTIONS] [COMMAND]
 
 Options:
-  -m, --model <MODEL>        Whisper model to use [default: base.en]
+  -b, --backend <BACKEND>    Transcription backend [default: from config]
+  -f, --file <FILE>          Transcribe a file directly (skip recording TUI)
+  -m, --model <MODEL>        Model to use [default: base.en]
   -p, --paste                Auto-paste transcription after completion
       --exit-delay <DELAY>   Delay before exiting after result
       --whisper-path <PATH>  Path to whisper-cli binary
@@ -197,11 +300,13 @@ Options:
   -V, --version              Print version
 
 Commands:
-  models  Manage whisper models
+  models  Manage transcription models
   config  Show or modify configuration
 ```
 
 ## Available Models
+
+### Whisper (default)
 
 | Model       | Size     | Description                           |
 |-------------|----------|---------------------------------------|
@@ -215,11 +320,21 @@ Commands:
 | medium      | ~1.5 GB  | High quality, multilingual            |
 | large-v3    | ~3.1 GB  | Highest quality, multilingual         |
 
+### Parakeet (requires `parakeet` feature)
+
+| Model       | Size     | Description                                    |
+|-------------|----------|------------------------------------------------|
+| tdt-0.6b    | ~2.5 GB  | TDT 0.6B — recommended, multilingual          |
+| tdt-1.1b    | ~4.3 GB  | TDT 1.1B — highest accuracy, multilingual     |
+| ctc-0.6b    | ~2.4 GB  | CTC 0.6B — English only, fast                 |
+
 ## Requirements
 
-- whisper-cpp (whisper-cli binary)
 - ALSA (for audio capture on Linux)
 - wtype (Wayland) or xdotool (X11) for paste simulation
+- **Whisper backend:** whisper-cpp (whisper-cli binary)
+- **Parakeet backend:** ONNX Runtime
+- **ffmpeg feature:** ffmpeg (for non-WAV file conversion)
 
 ## License
 

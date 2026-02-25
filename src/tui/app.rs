@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use crate::audio::{CpalRecorder, Recorder};
 use crate::clipboard::{Clipboard, SystemClipboard};
 use crate::config::Config;
-use crate::transcribe::{Transcriber, WhisperCliTranscriber};
+use crate::transcribe;
 
 /// App state
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,12 +30,10 @@ pub struct App {
     state: AppState,
     /// Audio recorder
     recorder: CpalRecorder,
-    /// Transcriber (stored for later use in thread)
-    transcriber_model_path: PathBuf,
-    /// Clipboard
-    clipboard: SystemClipboard,
     /// Configuration
     config: Config,
+    /// Clipboard
+    clipboard: SystemClipboard,
     /// Recording start time
     recording_start: Option<Instant>,
     /// Path to recorded audio
@@ -61,9 +59,8 @@ impl App {
         Self {
             state: AppState::Recording,
             recorder,
-            transcriber_model_path: config.model_path(),
-            clipboard,
             config,
+            clipboard,
             recording_start: None,
             audio_path: None,
             transcription_rx: None,
@@ -151,14 +148,31 @@ impl App {
         self.audio_path = Some(audio_path.clone());
         self.state = AppState::Transcribing;
 
-        // Start transcription in background thread
-        let model_path = self.transcriber_model_path.clone();
+        // Clone what the background thread needs
+        let backend_name = self.config.backend.clone();
+        let model_name = self.config.model.clone();
+        let models_dir = self.config.models_dir();
+        let whisper_path = self.config.whisper_path.clone();
+
         let (tx, rx) = mpsc::channel();
 
         thread::spawn(move || {
             let result = (|| -> Result<String> {
-                let transcriber = WhisperCliTranscriber::auto_detect(model_path)?;
-                transcriber.transcribe(&audio_path)
+                let backend: Box<dyn transcribe::TranscriptionBackend> = match backend_name.as_str()
+                {
+                    "whisper" => Box::new(transcribe::WhisperCliBackend::from_config(
+                        whisper_path.as_deref(),
+                        &model_name,
+                        &models_dir,
+                    )?),
+                    #[cfg(feature = "parakeet")]
+                    "parakeet" => {
+                        let model_path = models_dir.join("parakeet").join(&model_name);
+                        transcribe::create_backend("parakeet", &model_path)?
+                    }
+                    _ => anyhow::bail!("Unknown backend: {}", backend_name),
+                };
+                backend.transcribe(&audio_path)
             })();
             let _ = tx.send(result);
         });
