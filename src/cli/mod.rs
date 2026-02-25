@@ -19,6 +19,10 @@ pub struct Cli {
     #[arg(short, long, default_value = "base.en")]
     pub model: String,
 
+    /// Transcribe an audio file directly (skip recording TUI)
+    #[arg(short, long)]
+    pub file: Option<PathBuf>,
+
     /// Auto-paste transcription after completion
     #[arg(short, long)]
     pub paste: bool,
