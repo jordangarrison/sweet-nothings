@@ -15,6 +15,9 @@ use std::time::Duration;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
+    /// Transcription backend to use (e.g., "whisper", "parakeet")
+    pub backend: String,
+
     /// Whisper model to use (e.g., "base.en", "small.en")
     pub model: String,
 
@@ -35,6 +38,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            backend: "whisper".to_string(),
             model: "base.en".to_string(),
             auto_paste: false,
             exit_delay: Duration::from_secs(2),

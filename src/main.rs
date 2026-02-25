@@ -134,6 +134,7 @@ fn handle_config_command(action: ConfigAction) -> Result<()> {
         ConfigAction::Get { key } => {
             let config = Config::load()?;
             match key.as_str() {
+                "backend" => println!("{}", config.backend),
                 "model" => println!("{}", config.model),
                 "auto_paste" => println!("{}", config.auto_paste),
                 "exit_delay" => println!("{:?}", config.exit_delay),
@@ -146,6 +147,7 @@ fn handle_config_command(action: ConfigAction) -> Result<()> {
         ConfigAction::Set { key, value } => {
             let mut config = Config::load()?;
             match key.as_str() {
+                "backend" => config.backend = value,
                 "model" => config.model = value,
                 "auto_paste" => {
                     config.auto_paste = value.parse().context("Invalid boolean value")?
