@@ -9,6 +9,7 @@ license = "MIT"
 default = ["whisper"]
 whisper = []
 parakeet = ["dep:parakeet-rs"]
+ffmpeg = ["dep:tempfile"]
 
 [dependencies]
 # Audio capture
@@ -42,3 +43,6 @@ thiserror = "1"
 
 # Parakeet backend (optional)
 parakeet-rs = { version = "0.3", optional = true }
+
+# Audio format conversion (optional, for --file with non-WAV)
+tempfile = { version = "3", optional = true }

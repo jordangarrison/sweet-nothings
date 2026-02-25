@@ -24,6 +24,8 @@ fn main() -> Result<()> {
     // Load config first, applying CLI overrides
     let mut config = Config::load()?;
 
+    let file_path = args.file.clone();
+
     if let Some(ref backend) = args.backend {
         config.backend = backend.clone();
     }
@@ -91,6 +93,11 @@ fn main() -> Result<()> {
                 config.backend
             );
         }
+    }
+
+    // Direct file transcription mode (skip TUI)
+    if let Some(ref file) = file_path {
+        return transcribe_file(file, &config);
     }
 
     // Run the TUI
@@ -245,6 +252,120 @@ fn handle_config_command(action: ConfigAction) -> Result<()> {
             Ok(())
         }
     }
+}
+
+/// Transcribe an audio file directly, print result, optionally copy to clipboard.
+fn transcribe_file(file: &std::path::Path, config: &Config) -> Result<()> {
+    if !file.exists() {
+        anyhow::bail!("File not found: {}", file.display());
+    }
+
+    let ext = file
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    #[cfg(feature = "ffmpeg")]
+    let (transcribe_path, _temp_file): (std::path::PathBuf, Option<tempfile::NamedTempFile>) =
+        if ext == "wav" {
+            (file.to_path_buf(), None)
+        } else {
+            let temp = convert_to_wav(file)?;
+            let path = temp.path().to_path_buf();
+            (path, Some(temp))
+        };
+
+    #[cfg(not(feature = "ffmpeg"))]
+    let transcribe_path: std::path::PathBuf = if ext == "wav" {
+        file.to_path_buf()
+    } else {
+        anyhow::bail!(
+            "Unsupported format '.{}'. Only WAV files are supported.\n\
+             Convert with: ffmpeg -i {:?} -ar 16000 -ac 1 output.wav\n\n\
+             Or rebuild with ffmpeg support: cargo build --features ffmpeg",
+            ext,
+            file
+        );
+    };
+
+    // Create the transcription backend
+    let models_dir = config.models_dir();
+    let backend: Box<dyn TranscriptionBackend> = match config.backend.as_str() {
+        "whisper" => Box::new(WhisperCliBackend::from_config(
+            config.whisper_path.as_deref(),
+            &config.model,
+            &models_dir,
+        )?),
+        #[cfg(feature = "parakeet")]
+        "parakeet" => {
+            let model_path = models_dir.join("parakeet").join(&config.model);
+            transcribe::create_backend("parakeet", &model_path)?
+        }
+        _ => {
+            let available = available_backend_names().join(", ");
+            anyhow::bail!(
+                "Unknown backend: '{}'. Available: {}",
+                config.backend,
+                available
+            );
+        }
+    };
+
+    let text = backend.transcribe(&transcribe_path)?;
+
+    // Print result
+    println!("{}", text);
+
+    // Copy to clipboard
+    let mut clip = clipboard::SystemClipboard::new()?;
+    clipboard::Clipboard::copy(&mut clip, &text)?;
+    eprintln!("(copied to clipboard)");
+
+    // Auto-paste if requested
+    if config.auto_paste {
+        clipboard::Clipboard::paste(&clip)?;
+    }
+
+    Ok(())
+}
+
+/// Convert an audio file to 16kHz mono WAV using ffmpeg.
+#[cfg(feature = "ffmpeg")]
+fn convert_to_wav(input: &std::path::Path) -> Result<tempfile::NamedTempFile> {
+    use std::process::Command;
+
+    let temp = tempfile::Builder::new()
+        .suffix(".wav")
+        .tempfile()
+        .context("Failed to create temp file")?;
+
+    eprintln!(
+        "Converting {} to WAV...",
+        input.file_name().unwrap_or_default().to_string_lossy()
+    );
+
+    let status = Command::new("ffmpeg")
+        .args([
+            "-i",
+            input.to_str().context("Invalid input path")?,
+            "-ar",
+            "16000",
+            "-ac",
+            "1",
+            "-y",
+            temp.path().to_str().context("Invalid temp path")?,
+        ])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .context("Failed to run ffmpeg. Is it installed?")?;
+
+    if !status.success() {
+        anyhow::bail!("ffmpeg conversion failed (exit code: {:?})", status.code());
+    }
+
+    Ok(temp)
 }
 
 /// Migrate models from flat directory to backend subdirectories.
