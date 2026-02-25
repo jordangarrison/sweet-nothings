@@ -56,6 +56,16 @@
           xclip
         ];
 
+        # ALSA config with PipeWire support for dev shell
+        alsaConfigWithPipewire = pkgs.runCommand "alsa-config-pipewire" {} ''
+          mkdir -p $out/conf.d
+          cp ${pkgs.alsa-lib}/share/alsa/alsa.conf $out/
+          if [ -d "${pkgs.alsa-lib}/share/alsa/conf.d" ]; then
+            cp -r ${pkgs.alsa-lib}/share/alsa/conf.d/* $out/conf.d/ 2>/dev/null || true
+          fi
+          cp ${pkgs.pipewire}/share/alsa/alsa.conf.d/* $out/conf.d/ 2>/dev/null || true
+        '';
+
         # Parameterized build function
         buildSweetNothings = { features ? [ "whisper" ] }:
           let
@@ -114,7 +124,8 @@
           OPENSSL_DIR = "${pkgs.openssl.dev}";
           OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
           PKG_CONFIG_PATH = "${pkgs.alsa-lib.dev}/lib/pkgconfig";
-          ALSA_PLUGIN_DIR = "${pkgs.alsa-plugins}/lib/alsa-lib";
+          ALSA_PLUGIN_DIR = "${pkgs.pipewire}/lib/alsa-lib";
+          ALSA_CONFIG_DIR = "${alsaConfigWithPipewire}";
         };
 
         packages = {
