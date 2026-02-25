@@ -61,9 +61,11 @@
           let
             hasWhisper = builtins.elem "whisper" features;
             hasParakeet = builtins.elem "parakeet" features;
+            hasFfmpeg = builtins.elem "ffmpeg" features;
             runtimeDeps = commonRuntimeDeps
               ++ (if hasWhisper then whisperRuntimeDeps else [])
-              ++ (if hasParakeet then parakeetRuntimeDeps else []);
+              ++ (if hasParakeet then parakeetRuntimeDeps else [])
+              ++ (if hasFfmpeg then [ pkgs.ffmpeg ] else []);
             extraBuildInputs = if hasParakeet then [ pkgs.onnxruntime ] else [];
           in
           pkgs.rustPlatform.buildRustPackage {
@@ -99,6 +101,7 @@
             whisper-cpp
             alsa-plugins
             pipewire
+            ffmpeg
           ] ++ commonRuntimeDeps ++ whisperRuntimeDeps;
 
           shellHook = ''
@@ -116,7 +119,7 @@
 
         packages = {
           default = buildSweetNothings { features = [ "whisper" ]; };
-          full = buildSweetNothings { features = [ "whisper" "parakeet" ]; };
+          full = buildSweetNothings { features = [ "whisper" "parakeet" "ffmpeg" ]; };
           whisper-only = buildSweetNothings { features = [ "whisper" ]; };
           parakeet-only = buildSweetNothings { features = [ "parakeet" ]; };
         };

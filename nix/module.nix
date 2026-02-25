@@ -67,7 +67,7 @@ in
     };
 
     backends = lib.mkOption {
-      type = lib.types.listOf (lib.types.enum [ "whisper" "parakeet" ]);
+      type = lib.types.listOf (lib.types.enum [ "whisper" "parakeet" "ffmpeg" ]);
       default = [ "whisper" ];
       description = "Transcription backends to compile in.";
     };
