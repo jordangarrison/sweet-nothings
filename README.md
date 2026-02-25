@@ -157,8 +157,11 @@ cargo build --release
 # Build with Parakeet support (requires ONNX Runtime)
 cargo build --release --features parakeet
 
-# Build with all backends
-cargo build --release --features "whisper parakeet"
+# Build with ffmpeg support (auto-converts mp3/mp4/flac/ogg to WAV)
+cargo build --release --features ffmpeg
+
+# Build with everything
+cargo build --release --features "whisper parakeet ffmpeg"
 ```
 
 ## Usage
@@ -179,6 +182,27 @@ sweet-nothings --model small.en
 sweet-nothings --backend parakeet
 sweet-nothings --backend parakeet --model tdt-0.6b
 ```
+
+### File Transcription
+
+Transcribe existing audio files without the recording TUI:
+
+```bash
+# WAV files work out of the box
+sweet-nothings --file meeting.wav
+
+# With a specific backend
+sweet-nothings --file recording.wav --backend parakeet --model tdt-0.6b
+
+# Transcribe and auto-paste
+sweet-nothings --file recording.wav --paste
+
+# Other formats require the ffmpeg feature
+sweet-nothings --file interview.mp3    # needs ffmpeg feature
+sweet-nothings --file podcast.mp4      # needs ffmpeg feature
+```
+
+The `ffmpeg` feature automatically converts non-WAV files to the required format. Without it, only WAV files are accepted.
 
 ### Model Management
 
@@ -266,6 +290,7 @@ sweet-nothings [OPTIONS] [COMMAND]
 
 Options:
   -b, --backend <BACKEND>    Transcription backend [default: from config]
+  -f, --file <FILE>          Transcribe a file directly (skip recording TUI)
   -m, --model <MODEL>        Model to use [default: base.en]
   -p, --paste                Auto-paste transcription after completion
       --exit-delay <DELAY>   Delay before exiting after result
@@ -309,6 +334,7 @@ Commands:
 - wtype (Wayland) or xdotool (X11) for paste simulation
 - **Whisper backend:** whisper-cpp (whisper-cli binary)
 - **Parakeet backend:** ONNX Runtime
+- **ffmpeg feature:** ffmpeg (for non-WAV file conversion)
 
 ## License
 
