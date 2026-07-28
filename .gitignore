@@ -5,9 +5,6 @@
 # Nix
 .direnv/
 
-# Local environment
-.envrc
-
 # Editor
 *.swp
 *.swo
