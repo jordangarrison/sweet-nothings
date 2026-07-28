@@ -22,11 +22,11 @@ pub fn available_backend_names() -> Vec<&'static str> {
 /// The whisper binary is auto-detected.
 pub fn create_backend(
     backend_name: &str,
-    model_path: &std::path::PathBuf,
+    model_path: &std::path::Path,
 ) -> Result<Box<dyn TranscriptionBackend>> {
     match backend_name {
         "whisper" => {
-            let backend = WhisperCliBackend::auto_detect(model_path.clone())?;
+            let backend = WhisperCliBackend::auto_detect(model_path.to_path_buf())?;
             Ok(Box::new(backend))
         }
         #[cfg(feature = "parakeet")]

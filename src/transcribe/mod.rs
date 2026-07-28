@@ -2,6 +2,7 @@
 //!
 //! Provides the `TranscriptionBackend` trait and implementations for speech-to-text.
 
+mod preferred_words;
 mod registry;
 mod whisper_cli;
 
@@ -14,6 +15,16 @@ pub use whisper_cli::WhisperCliBackend;
 
 use anyhow::Result;
 use std::path::{Path, PathBuf};
+
+/// Transcribe audio, then apply shared preferred-word correction once.
+pub fn transcribe_with_preferred_words(
+    backend: &dyn TranscriptionBackend,
+    audio_path: &Path,
+    preferred_words: &[String],
+) -> Result<String> {
+    let raw = backend.transcribe(audio_path)?;
+    Ok(preferred_words::correct(&raw, preferred_words))
+}
 
 /// Information about an available model
 #[derive(Debug, Clone)]

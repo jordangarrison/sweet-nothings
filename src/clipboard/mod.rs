@@ -72,7 +72,10 @@ fn paste_text() -> Result<()> {
 #[cfg(target_os = "macos")]
 fn paste_text() -> Result<()> {
     Command::new("osascript")
-        .args(["-e", "tell application \"System Events\" to keystroke \"v\" using command down"])
+        .args([
+            "-e",
+            "tell application \"System Events\" to keystroke \"v\" using command down",
+        ])
         .status()?;
     Ok(())
 }

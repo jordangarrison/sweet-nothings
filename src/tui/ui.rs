@@ -78,11 +78,7 @@ fn draw_recording(f: &mut Frame, app: &App, area: Rect) {
     let level = (app.audio_level() * 100.0) as u16;
     let gauge = Gauge::default()
         .block(Block::default().title("Audio Level"))
-        .gauge_style(
-            Style::default()
-                .fg(Color::Red)
-                .bg(Color::DarkGray),
-        )
+        .gauge_style(Style::default().fg(Color::Red).bg(Color::DarkGray))
         .percent(level.min(100));
     f.render_widget(gauge, chunks[1]);
 

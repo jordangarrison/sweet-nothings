@@ -26,10 +26,7 @@ pub fn download_file(
     println!();
 
     let client = reqwest::blocking::Client::new();
-    let response = client
-        .get(url)
-        .send()
-        .context("Failed to start download")?;
+    let response = client.get(url).send().context("Failed to start download")?;
 
     let status = response.status();
     if !status.is_success() {

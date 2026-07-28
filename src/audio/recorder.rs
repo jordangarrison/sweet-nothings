@@ -190,7 +190,10 @@ impl Recorder for CpalRecorder {
         // Resample to 16kHz (required by transcription backends)
         let target_rate = 16000u32;
         let (final_samples, output_rate) = if self.sample_rate != target_rate {
-            (resample(&mono_samples, self.sample_rate, target_rate), target_rate)
+            (
+                resample(&mono_samples, self.sample_rate, target_rate),
+                target_rate,
+            )
         } else {
             (mono_samples, self.sample_rate)
         };
