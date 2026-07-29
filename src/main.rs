@@ -110,15 +110,13 @@ fn resolve_backend_for_model_check(config: &Config) -> Result<Box<dyn Transcript
         "whisper" => {
             let models_dir = config.models_dir();
             // Create with a placeholder — we only need resolve_model_path and available_models
-            let backend = WhisperCliBackend::auto_detect(
-                models_dir.join("whisper").join("dummy"),
-            )
-            .or_else(|_| {
-                Ok::<_, anyhow::Error>(WhisperCliBackend::new(
-                    std::path::PathBuf::from("whisper-cli"),
-                    models_dir.join("whisper").join("dummy"),
-                ))
-            })?;
+            let backend = WhisperCliBackend::auto_detect(models_dir.join("whisper").join("dummy"))
+                .or_else(|_| {
+                    Ok::<_, anyhow::Error>(WhisperCliBackend::new(
+                        std::path::PathBuf::from("whisper-cli"),
+                        models_dir.join("whisper").join("dummy"),
+                    ))
+                })?;
             Ok(Box::new(backend))
         }
         #[cfg(feature = "parakeet")]
@@ -229,6 +227,7 @@ fn handle_config_command(action: ConfigAction) -> Result<()> {
                 "exit_delay" => println!("{:?}", config.exit_delay),
                 "whisper_path" => println!("{:?}", config.whisper_path),
                 "models_dir" => println!("{:?}", config.models_dir),
+                "preferred_words" => println!("{:?}", config.preferred_words),
                 _ => anyhow::bail!("Unknown config key: {}", key),
             }
             Ok(())
@@ -296,6 +295,7 @@ fn transcribe_file(file: &std::path::Path, config: &Config) -> Result<()> {
             config.whisper_path.as_deref(),
             &config.model,
             &models_dir,
+            &config.preferred_words,
         )?),
         #[cfg(feature = "parakeet")]
         "parakeet" => {
@@ -312,7 +312,11 @@ fn transcribe_file(file: &std::path::Path, config: &Config) -> Result<()> {
         }
     };
 
-    let text = backend.transcribe(&transcribe_path)?;
+    let text = transcribe::transcribe_with_preferred_words(
+        backend.as_ref(),
+        &transcribe_path,
+        &config.preferred_words,
+    )?;
 
     // Print result
     println!("{}", text);

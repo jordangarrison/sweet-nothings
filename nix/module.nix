@@ -11,6 +11,7 @@
 #     backends = [ "whisper" "parakeet" ];
 #     defaultBackend = "parakeet";
 #     model = "tdt-0.6b";
+#     settings.preferred_words = [ "Mikayla" "Isla" ];
 #   };
 #
 # Usage (NixOS):
@@ -26,6 +27,7 @@ flake:
 let
   cfg = config.programs.sweet-nothings;
   system = pkgs.stdenv.hostPlatform.system;
+  tomlFormat = pkgs.formats.toml {};
 
   # Build the package with selected backends
   package =
@@ -41,16 +43,7 @@ let
     exit_delay = cfg.settings.exit_delay or "2s";
   } // (builtins.removeAttrs (cfg.settings) [ "auto_paste" "exit_delay" ]);
 
-  tomlLines = lib.mapAttrsToList (key: value:
-    let
-      tomlValue =
-        if builtins.isBool value then (if value then "true" else "false")
-        else if builtins.isInt value then toString value
-        else "\"${toString value}\"";
-    in "${key} = ${tomlValue}"
-  ) configSettings;
-
-  tomlContent = builtins.concatStringsSep "\n" tomlLines + "\n";
+  configFile = tomlFormat.generate "sweet-nothings-config.toml" configSettings;
 
   needsConfig = cfg.defaultBackend != "whisper" || cfg.model != "base.en" || cfg.settings != {};
 
@@ -95,7 +88,7 @@ in
     home.packages = [ cfg.package ];
 
     xdg.configFile."sweet-nothings/config.toml" = lib.mkIf needsConfig {
-      text = tomlContent;
+      source = configFile;
     };
   };
 }

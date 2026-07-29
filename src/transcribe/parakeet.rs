@@ -30,7 +30,9 @@ static PARAKEET_MODELS: &[ModelInfo] = &[
 ];
 
 /// Download configuration for a model: (repo, list of (remote_path, local_filename))
-fn model_download_config(name: &str) -> Option<(&'static str, &'static [(&'static str, &'static str)])> {
+fn model_download_config(
+    name: &str,
+) -> Option<(&'static str, &'static [(&'static str, &'static str)])> {
     match name {
         "tdt-0.6b" => Some((
             "istupakov/parakeet-tdt-0.6b-v3-onnx",
@@ -47,7 +49,10 @@ fn model_download_config(name: &str) -> Option<(&'static str, &'static [(&'stati
                 ("encoder-model.onnx", "encoder-model.onnx"),
                 ("encoder-model.onnx.data", "encoder-model.onnx.data"),
                 ("decoder_joint-model.onnx", "decoder_joint-model.onnx"),
-                ("decoder_joint-model.onnx.data", "decoder_joint-model.onnx.data"),
+                (
+                    "decoder_joint-model.onnx.data",
+                    "decoder_joint-model.onnx.data",
+                ),
                 ("vocab.txt", "vocab.txt"),
             ],
         )),

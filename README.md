@@ -13,6 +13,7 @@ A terminal-based dictation tool that records speech, transcribes it locally, and
 - Optional auto-paste after transcription
 - TUI with visual feedback (recording timer, audio level, spinner)
 - Automatic model downloading
+- Preferred-word spelling correction for names and specialized terms
 - XDG-compliant configuration
 
 ## Installation
@@ -55,6 +56,7 @@ The recommended way to use Sweet Nothings with Nix. The module builds the packag
             settings = {                    # additional config.toml settings
               auto_paste = false;
               exit_delay = "2s";
+              preferred_words = [ "Mikayla" "Isla" ];
             };
           };
         }
@@ -235,6 +237,9 @@ sweet-nothings config set backend parakeet
 sweet-nothings config set model small.en
 sweet-nothings config set auto_paste true
 sweet-nothings config set exit_delay 3s
+
+# Read preferred words configured in config.toml
+sweet-nothings config get preferred_words
 ```
 
 ## Configuration File
@@ -246,7 +251,26 @@ backend = "whisper"
 model = "base.en"
 auto_paste = false
 exit_delay = "2s"
+preferred_words = ["Mikayla", "Isla"]
 ```
+
+### Preferred Words
+
+`preferred_words` stores only desired spellings in local configuration. After
+every transcription backend runs, Sweet Nothings conservatively compares raw
+one-to-three-word spans with these preferences using spelling and phonetic
+similarity:
+
+- `Michaela`, `Makayla`, or `my Kayla` can become `Mikayla`.
+- Exact matches use configured casing.
+- Punctuation, whitespace around matches, and possessives are preserved.
+- Weak, ambiguous, short fuzzy, or punctuation-crossing matches stay unchanged.
+
+Whisper also receives preferred words as best-effort prompt context. Recognition
+remains probabilistic, and Parakeet currently has no vocabulary prompt input.
+Shared post-processing provides consistent correction for both backends.
+Conservative matching intentionally leaves broad misses unchanged; it does not
+learn aliases, restructure sentences, or use remote services.
 
 ## Window Manager Integration
 

@@ -51,11 +51,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(
-        recorder: CpalRecorder,
-        clipboard: SystemClipboard,
-        config: Config,
-    ) -> Self {
+    pub fn new(recorder: CpalRecorder, clipboard: SystemClipboard, config: Config) -> Self {
         Self {
             state: AppState::Recording,
             recorder,
@@ -153,6 +149,7 @@ impl App {
         let model_name = self.config.model.clone();
         let models_dir = self.config.models_dir();
         let whisper_path = self.config.whisper_path.clone();
+        let preferred_words = self.config.preferred_words.clone();
 
         let (tx, rx) = mpsc::channel();
 
@@ -164,6 +161,7 @@ impl App {
                         whisper_path.as_deref(),
                         &model_name,
                         &models_dir,
+                        &preferred_words,
                     )?),
                     #[cfg(feature = "parakeet")]
                     "parakeet" => {
@@ -172,7 +170,11 @@ impl App {
                     }
                     _ => anyhow::bail!("Unknown backend: {}", backend_name),
                 };
-                backend.transcribe(&audio_path)
+                transcribe::transcribe_with_preferred_words(
+                    backend.as_ref(),
+                    &audio_path,
+                    &preferred_words,
+                )
             })();
             let _ = tx.send(result);
         });

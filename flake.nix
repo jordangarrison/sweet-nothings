@@ -87,6 +87,37 @@
           MODULES
         '';
 
+        moduleEvaluation = pkgs.lib.evalModules {
+          modules = [
+            self.homeManagerModules.default
+            ({ lib, ... }: {
+              options.home.packages = lib.mkOption {
+                type = lib.types.listOf lib.types.package;
+                default = [];
+              };
+              options.xdg.configFile = lib.mkOption {
+                type = lib.types.attrsOf (lib.types.submodule {
+                  options.source = lib.mkOption {
+                    type = lib.types.path;
+                  };
+                });
+                default = {};
+              };
+            })
+            {
+              programs.sweet-nothings = {
+                enable = true;
+                package = pkgs.hello;
+                settings.preferred_words = [ "Mikayla" "Isla" ];
+              };
+            }
+          ];
+          specialArgs = { inherit pkgs; };
+        };
+
+        moduleConfigFile =
+          moduleEvaluation.config.xdg.configFile."sweet-nothings/config.toml".source;
+
         # Parameterized build function
         buildSweetNothings = { features ? [ "whisper" ] }:
           let
@@ -99,7 +130,7 @@
               ++ (if hasFfmpeg then [ pkgs.ffmpeg ] else []);
             extraBuildInputs = if hasParakeet then [ pkgs.onnxruntime ] else [];
           in
-          pkgs.rustPlatform.buildRustPackage {
+          pkgs.rustPlatform.buildRustPackage ({
             pname = "sweet-nothings";
             version = "0.1.0";
             src = ./.;
@@ -120,7 +151,11 @@
               description = "Terminal-based dictation tool";
               license = licenses.mit;
             };
-          };
+          } // pkgs.lib.optionalAttrs hasParakeet {
+            # Keep ort-sys offline and link the Nix-provided ONNX Runtime.
+            ORT_LIB_LOCATION = "${pkgs.onnxruntime}/lib";
+            ORT_PREFER_DYNAMIC_LINK = "1";
+          });
 
       in
       {
@@ -155,6 +190,13 @@
           whisper-only = buildSweetNothings { features = [ "whisper" ]; };
           parakeet-only = buildSweetNothings { features = [ "parakeet" ]; };
         };
+
+        checks.module-preferred-words = pkgs.runCommand "module-preferred-words" {} ''
+          ${pkgs.python3}/bin/python -c \
+            'import sys, tomllib; assert tomllib.load(open(sys.argv[1], "rb"))["preferred_words"] == ["Mikayla", "Isla"]' \
+            ${moduleConfigFile}
+          touch $out
+        '';
 
         # Expose build function for the nix module
         lib = { inherit buildSweetNothings; };
