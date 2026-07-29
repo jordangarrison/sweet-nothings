@@ -16,6 +16,13 @@ struct WordSpan {
 }
 
 #[derive(Debug)]
+struct Preference {
+    normalized: String,
+    punctuation: Vec<(usize, char)>,
+    trailing_punctuation: String,
+}
+
+#[derive(Debug)]
 struct Correction {
     start: usize,
     end: usize,
@@ -35,9 +42,13 @@ pub fn correct(text: &str, preferred_words: &[String]) -> String {
     }
 
     let words = word_spans(text);
-    let normalized_preferences: Vec<String> = preferred_words
+    let preferences: Vec<Preference> = preferred_words
         .iter()
-        .map(|preference| normalize(preference))
+        .map(|preference| Preference {
+            normalized: normalize(preference),
+            punctuation: punctuation_structure(preference),
+            trailing_punctuation: trailing_punctuation(preference).to_string(),
+        })
         .collect();
     let mut corrections = Vec::new();
 
@@ -57,9 +68,8 @@ pub fn correct(text: &str, preferred_words: &[String]) -> String {
 
             let start = words[start_index].start;
             let end = words[end_index].end;
-            let normalized_candidate = normalize(&text[start..end]);
-            if let Some((preference_index, score)) =
-                unique_best_match(&normalized_candidate, &normalized_preferences)
+            if let Some((preference_index, score, end)) =
+                unique_best_match(text, start, end, &preferences)
             {
                 corrections.push(Correction {
                     start,
@@ -76,7 +86,8 @@ pub fn correct(text: &str, preferred_words: &[String]) -> String {
         right
             .score
             .total_cmp(&left.score)
-            .then_with(|| left.word_count.cmp(&right.word_count))
+            .then_with(|| right.word_count.cmp(&left.word_count))
+            .then_with(|| (right.end - right.start).cmp(&(left.end - left.start)))
             .then_with(|| left.start.cmp(&right.start))
     });
 
@@ -132,25 +143,70 @@ fn normalize(value: &str) -> String {
         .collect()
 }
 
-fn unique_best_match(candidate: &str, preferences: &[String]) -> Option<(usize, f64)> {
-    let mut best: Option<(usize, f64)> = None;
+fn punctuation_structure(value: &str) -> Vec<(usize, char)> {
+    let mut alphanumeric_count = 0;
+    let mut punctuation = Vec::new();
+
+    for character in value.chars() {
+        if character.is_alphanumeric() {
+            alphanumeric_count += 1;
+        } else if !character.is_whitespace() {
+            punctuation.push((alphanumeric_count, character));
+        }
+    }
+
+    punctuation
+}
+
+fn trailing_punctuation(value: &str) -> &str {
+    value
+        .char_indices()
+        .rev()
+        .find(|(_, character)| character.is_alphanumeric())
+        .map(|(index, character)| &value[index + character.len_utf8()..])
+        .unwrap_or(value)
+}
+
+fn unique_best_match(
+    text: &str,
+    start: usize,
+    end: usize,
+    preferences: &[Preference],
+) -> Option<(usize, f64, usize)> {
+    let mut best: Option<(usize, f64, usize)> = None;
     let mut tied = false;
 
     for (index, preference) in preferences.iter().enumerate() {
-        let Some(score) = match_score(candidate, preference) else {
+        let candidate_end = if text[start..end].ends_with(&preference.trailing_punctuation) {
+            end
+        } else {
+            let trailing_text = text.get(end..)?;
+            let trailing_length = preference.trailing_punctuation.len();
+            if !trailing_text.starts_with(&preference.trailing_punctuation) {
+                continue;
+            }
+            end + trailing_length
+        };
+        let candidate = &text[start..candidate_end];
+        if punctuation_structure(candidate) != preference.punctuation {
+            continue;
+        }
+
+        let normalized_candidate = normalize(candidate);
+        let Some(score) = match_score(&normalized_candidate, &preference.normalized) else {
             continue;
         };
 
         match best {
             None => {
-                best = Some((index, score));
+                best = Some((index, score, candidate_end));
                 tied = false;
             }
-            Some((_, best_score)) if score > best_score + SCORE_EPSILON => {
-                best = Some((index, score));
+            Some((_, best_score, _)) if score > best_score + SCORE_EPSILON => {
+                best = Some((index, score, candidate_end));
                 tied = false;
             }
-            Some((_, best_score)) if (score - best_score).abs() <= SCORE_EPSILON => {
+            Some((_, best_score, _)) if (score - best_score).abs() <= SCORE_EPSILON => {
                 tied = true;
             }
             Some(_) => {}
@@ -250,6 +306,30 @@ mod tests {
     }
 
     #[test]
+    fn preserves_surrounding_sentence_punctuation() {
+        let words = preferences(&["Mikayla"]);
+
+        assert_eq!(correct("(Michaela),", &words), "(Mikayla),");
+        assert_eq!(correct("\"Michaela!\"", &words), "\"Mikayla!\"");
+    }
+
+    #[test]
+    fn punctuation_structure_must_match() {
+        assert_eq!(correct("foo.bar", &preferences(&["Fubar"])), "foo.bar");
+        assert_eq!(correct("32.3", &preferences(&["323"])), "32.3");
+        assert_eq!(correct("foobar", &preferences(&["Foo.Bar"])), "foobar");
+    }
+
+    #[test]
+    fn punctuation_bearing_preferences_replace_the_full_token() {
+        let words = preferences(&["C++"]);
+
+        assert_eq!(correct("c++", &words), "C++");
+        assert_eq!(correct("Use c++.", &words), "Use C++.");
+        assert_eq!(correct("c++'s types", &words), "C++'s types");
+    }
+
+    #[test]
     fn supports_unicode_exact_matches() {
         let words = preferences(&["Élodie", "東京"]);
 
@@ -305,6 +385,13 @@ mod tests {
         let words = preferences(&["Mikayla"]);
 
         assert_eq!(correct("my Mikayla", &words), "my Mikayla");
+    }
+
+    #[test]
+    fn exact_phrase_wins_over_overlapping_exact_word() {
+        let words = preferences(&["MARY JANE", "Jane"]);
+
+        assert_eq!(correct("mary jane", &words), "MARY JANE");
     }
 
     #[test]

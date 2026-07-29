@@ -94,8 +94,12 @@ impl Config {
         for word in &self.preferred_words {
             let trimmed = word.trim();
             anyhow::ensure!(!trimmed.is_empty(), "preferred_words cannot contain blanks");
+            anyhow::ensure!(
+                word == trimmed,
+                "preferred_words cannot contain leading or trailing whitespace: {word:?}"
+            );
 
-            let folded = trimmed.to_lowercase();
+            let folded = word.to_lowercase();
             anyhow::ensure!(
                 seen.insert(folded),
                 "preferred_words contains a case-insensitive duplicate: {word}"
@@ -155,6 +159,32 @@ exit_delay = "2s"
             config.validate().unwrap_err().to_string(),
             "preferred_words cannot contain blanks"
         );
+    }
+
+    #[test]
+    fn preferred_word_boundary_whitespace_is_rejected() {
+        for word in [" Mikayla", "Mikayla ", "\tMikayla\n"] {
+            let config = Config {
+                preferred_words: vec![word.into()],
+                ..Config::default()
+            };
+
+            assert!(config
+                .validate()
+                .unwrap_err()
+                .to_string()
+                .contains("leading or trailing whitespace"));
+        }
+    }
+
+    #[test]
+    fn preferred_word_internal_spaces_are_allowed() {
+        let config = Config {
+            preferred_words: vec!["Mary Jane".into()],
+            ..Config::default()
+        };
+
+        config.validate().unwrap();
     }
 
     #[test]
